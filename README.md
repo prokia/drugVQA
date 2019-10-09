@@ -17,5 +17,5 @@ All default arguments for demo are provided in the [trainAndTest.ipynb](./trainA
 ## Usage
 To run the training procedure,
 
-1. Install [requirements.text](./requirements.text) to set up the envirnoment.
+1. Install [requirements.txt](./requirements.text) to set up the envirnoment.
 2. Run the [trainAndTest.ipynb](./trainAndTest.ipynb) to train and test the model.
