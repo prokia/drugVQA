@@ -38,8 +38,9 @@ class ResidualBlock(nn.Module):
 
 class DrugVQA(torch.nn.Module):
     """
-    The class is an implementation of the paper A Structured Self-Attentive Sentence Embedding including regularization
-    and without pruning. Slight modifications have been done for speedup
+    The class is an implementation of the DrugVQA model including regularization and without pruning. 
+    Slight modifications have been done for speedup
+    
     """
     def __init__(self,batch_size,lstm_hid_dim,d_a,r,block,n_chars_smi,n_chars_seq, emb_dim=30,vocab_size=None,num_classes=10,type=0,n_classes = 1):
         """
@@ -129,7 +130,7 @@ class DrugVQA(torch.nn.Module):
     # x1 = smiles , x2 = contactMap
     def forward(self,x1,x2):
         embeddings = self.embeddings(x1)         
-        outputs, self.hidden_state = self.lstm(embeddings,self.hidden_state)    #应该是 batch * seqlenth * embed
+        outputs, self.hidden_state = self.lstm(embeddings,self.hidden_state)    
         x1 = F.tanh(self.linear_first(outputs))       
         x1 = self.linear_second(x1)       
         x1 = self.softmax(x1,1)       
@@ -152,9 +153,9 @@ class DrugVQA(torch.nn.Module):
         seq_embeddings = seq_attention@o1      
         avg_seq_embeddings = torch.sum(seq_embeddings,1)/self.r
         
-        sscomplex = torch.cat([avg_sentence_embeddings,avg_seq_embeddings],dim=1)  #,dim=0
+        sscomplex = torch.cat([avg_sentence_embeddings,avg_seq_embeddings],dim=1) 
         sscomplex = F.relu(self.linear_final_step(sscomplex))
-        self.seq_hidden_state =  self.init_hidden()  #wonderful!!
+        self.seq_hidden_state =  self.init_hidden()  
         if not bool(self.type):
             output = F.sigmoid(self.linear_final(sscomplex))
             return output,attention
