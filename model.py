@@ -42,63 +42,64 @@ class DrugVQA(torch.nn.Module):
     Slight modifications have been done for speedup
     
     """
-    def __init__(self,batch_size,lstm_hid_dim,d_a,r,block,n_chars_smi,n_chars_seq, emb_dim=30,vocab_size=None,num_classes=10,type=0,n_classes = 1):
+    def __init__(self,args,block):
         """
         Initializes parameters suggested in paper
  
-        Args:
+        args:
             batch_size  : {int} batch_size used for training
             lstm_hid_dim: {int} hidden dimension for lstm
             d_a         : {int} hidden dimension for the dense layer
             r           : {int} attention-hops or attention heads
+            n_chars_smi : {int} voc size of smiles
+            n_chars_seq : {int} voc size of protein sequence
+            dropout     : {float}
+            in_channels : {int} channels of CNN block input
+            cnn_channels: {int} channels of CNN block
+            cnn_layers  : {int} num of layers of each CNN block
             emb_dim     : {int} embeddings dimension
-            vocab_size  : {int} size of the vocabulary
-            type        : [0,1] 0-->binary_classification 1-->multiclass classification
+            dense_hid   : {int} hidden dim for the output dense
+            task_type   : [0,1] 0-->binary_classification 1-->multiclass classification
             n_classes   : {int} number of classes
  
         Returns:
             self
         """
         super(DrugVQA,self).__init__()
+        self.batch_size = args['batch_size']
+        self.lstm_hid_dim = args['lstm_hid_dim']
+        self.r = args['r']
+        self.type = args['task_type']
+        self.in_channels = args['in_channels']
         #rnn
-        self.embeddings = nn.Embedding(n_chars_smi, emb_dim)
-        self.seq_embed = nn.Embedding(n_chars_seq,emb_dim)
-        self.lstm = torch.nn.LSTM(emb_dim,lstm_hid_dim,2,batch_first=True,bidirectional=True,dropout=0.2) 
-        self.linear_first = torch.nn.Linear(2*lstm_hid_dim,d_a)
-        self.linear_first.bias.data.fill_(0)
-        self.linear_second = torch.nn.Linear(d_a,r)
-        self.linear_second.bias.data.fill_(0)
-        self.linear_first_seq = torch.nn.Linear(32,d_a)
-        self.linear_first_seq.bias.data.fill_(0)
-        self.linear_second_seq = torch.nn.Linear(d_a,r)
-        self.linear_second_seq.bias.data.fill_(0)
+        self.embeddings = nn.Embedding(args['n_chars_smi'], args['emb_dim'])
+        self.seq_embed = nn.Embedding(args['n_chars_seq'],args['emb_dim'])
+        self.lstm = torch.nn.LSTM(args['emb_dim'],self.lstm_hid_dim,2,batch_first=True,bidirectional=True,dropout=args['dropout']) 
+        self.linear_first = torch.nn.Linear(2*self.lstm_hid_dim,args['d_a'])
+        self.linear_second = torch.nn.Linear(args['d_a'],args['r'])
+        self.linear_first_seq = torch.nn.Linear(args['cnn_channels'],args['d_a'])
+        self.linear_second_seq = torch.nn.Linear(args['d_a'],self.r)
+
         #cnn
-        self.in_channels = 8
-        self.conv = conv3x3(1, 8)
-        self.bn = nn.BatchNorm2d(8)
+        self.conv = conv3x3(1, self.in_channels)
+        self.bn = nn.BatchNorm2d(self.in_channels)
         self.elu = nn.ELU(inplace=False)
-        self.layer1 = self.make_layer(block, 16, 5)
-        self.layer2 = self.make_layer(block, 32, 5)
-        self.layer3 = self.make_layer(block, 32, 5)
-        
-        self.n_classes = n_classes
-        self.linear_final_step = torch.nn.Linear(lstm_hid_dim*2+d_a,100)
-        self.linear_final = torch.nn.Linear(100,self.n_classes)
-        self.batch_size = batch_size
-        self.lstm_hid_dim = lstm_hid_dim
+        self.layer1 = self.make_layer(block, args['cnn_channels'], args['cnn_layers'])
+        self.layer2 = self.make_layer(block, args['cnn_channels'], args['cnn_layers'])
+
+        self.linear_final_step = torch.nn.Linear(self.lstm_hid_dim*2+d_a,args['dense_hid'])
+        self.linear_final = torch.nn.Linear(args['dense_hid'],args['n_classes'])
+
         self.hidden_state = self.init_hidden()
         self.seq_hidden_state = self.init_hidden()
-        self.r = r
-        self.type = type
         
     def softmax(self,input, axis=1):
         """
         Softmax applied to axis=n
- 
         Args:
            input: {Tensor,Variable} input on which softmax is to be applied
            axis : {int} axis on which softmax is to be applied
- 
+
         Returns:
             softmaxed tensors
         """
@@ -109,8 +110,7 @@ class DrugVQA(torch.nn.Module):
         soft_max_2d = F.softmax(input_2d)
         soft_max_nd = soft_max_2d.view(*trans_size)
         return soft_max_nd.transpose(axis, len(input_size)-1)
-       
-        
+
     def init_hidden(self):
         return (Variable(torch.zeros(4,self.batch_size,self.lstm_hid_dim).cuda()),Variable(torch.zeros(4,self.batch_size,self.lstm_hid_dim)).cuda())
     
@@ -129,35 +129,34 @@ class DrugVQA(torch.nn.Module):
         
     # x1 = smiles , x2 = contactMap
     def forward(self,x1,x2):
-        embeddings = self.embeddings(x1)         
-        outputs, self.hidden_state = self.lstm(embeddings,self.hidden_state)    
-        x1 = F.tanh(self.linear_first(outputs))       
-        x1 = self.linear_second(x1)       
-        x1 = self.softmax(x1,1)       
-        attention = x1.transpose(1,2)        
-        sentence_embeddings = attention@outputs       
-        avg_sentence_embeddings = torch.sum(sentence_embeddings,1)/self.r  #multi head
+        smile_embed = self.embeddings(x1)         
+        outputs, self.hidden_state = self.lstm(smile_embed,self.hidden_state)    
+        sentence_att = F.tanh(self.linear_first(outputs))       
+        sentence_att = self.linear_second(sentence_att)       
+        sentence_att = self.softmax(sentence_att,1)       
+        sentence_att = sentence_att.transpose(1,2)        
+        sentence_embed = sentence_att@outputs
+        avg_sentence_embed = torch.sum(sentence_embed,1)/self.r  #multi head
          
-        out = self.conv(x2)
-        out1 = self.bn(out)
-        out2 = self.elu(out1)
-        out3 = self.layer1(out2)
-        out3 = self.layer2(out3)
-        out3 = self.layer3(out3)
-        o1 = torch.mean(out3,2)
-        o1 = o1.permute(0,2,1)
-        x = F.tanh(self.linear_first_seq(o1))       
-        x = self.linear_second_seq(x)       
-        x = self.softmax(x,1)       
-        seq_attention = x.transpose(1,2)
-        seq_embeddings = seq_attention@o1      
-        avg_seq_embeddings = torch.sum(seq_embeddings,1)/self.r
+        pic = self.conv(x2)
+        pic = self.bn(pic)
+        pic = self.elu(pic)
+        pic = self.layer1(pic)
+        pic = self.layer2(pic)
+        pic_emb = torch.mean(pic,2)
+        pic_emb = pic_emb.permute(0,2,1)
+        seq_att = F.tanh(self.linear_first_seq(pic_emb))       
+        seq_att = self.linear_second_seq(seq_att)       
+        seq_att = self.softmax(seq_att,1)       
+        seq_att = seq_att.transpose(1,2)
+        seq_embed = seq_att@pic_emb      
+        avg_seq_embed = torch.sum(seq_embed,1)/self.r
         
-        sscomplex = torch.cat([avg_sentence_embeddings,avg_seq_embeddings],dim=1) 
+        sscomplex = torch.cat([avg_sentence_embed,avg_seq_embed],dim=1) 
         sscomplex = F.relu(self.linear_final_step(sscomplex))
-        self.seq_hidden_state =  self.init_hidden()  
+        
         if not bool(self.type):
             output = F.sigmoid(self.linear_final(sscomplex))
-            return output,attention
+            return output,seq_att
         else:
-            return F.log_softmax(self.linear_final(sscomplex)),attention
+            return F.log_softmax(self.linear_final(sscomplex)),seq_att
