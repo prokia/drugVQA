@@ -12,7 +12,8 @@ All data used in this paper are publicly available and can be accessed here: [DU
 
 
 ## Demo Instructions
-All default arguments for demo are provided in the [trainAndTest.ipynb](./trainAndTest.ipynb).
+All default arguments for demo are provided in the [dataPre.py](./dataPre.py).
+Run [main.py](./main.py)
 
 ## Usage
 To run the training procedure,
