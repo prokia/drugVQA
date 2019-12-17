@@ -19,4 +19,4 @@ Run [main.py](./main.py)
 To run the training procedure,
 
 1. Install [requirements.txt](./requirements.text) to set up the envirnoment.
-2. Run the [trainAndTest.ipynb](./trainAndTest.ipynb) to train and test the model.
+2. Run the [main.py](./main.py) to train and test the model.
