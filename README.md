@@ -18,5 +18,5 @@ Run [main.py](./main.py)
 ## Usage
 To run the training procedure,
 
-1. Install [requirements.txt](./requirements.text) to set up the envirnoment.
+1. Install [requirements.txt](./requirements.txt) to set up the envirnoment.
 2. Run the [main.py](./main.py) to train and test the model.
