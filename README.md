@@ -1,6 +1,6 @@
 # Predicting Drug Protein Interaction using Quasi-Visual Question Answering System
 
-Supporting Information for the paper "[Predicting Drug Protein Interaction using Quasi-Visual Question Answering System](https://www.baidu.com)"
+Supporting Information for the paper "[Predicting Drug Protein Interaction using Quasi-Visual Question Answering System](https://www.nature.com/articles/s42256-020-0152-y)"
 
 DrugVQA is a multimodel learning method combining a dynamic attentive convolutional neural network to learn fixed-size represen-tations from the variable-length distance maps and a self-attentional sequential model to automatically extract semantic features from the linear notations.
 
