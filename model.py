@@ -87,7 +87,7 @@ class DrugVQA(torch.nn.Module):
         self.layer1 = self.make_layer(block, args['cnn_channels'], args['cnn_layers'])
         self.layer2 = self.make_layer(block, args['cnn_channels'], args['cnn_layers'])
 
-        self.linear_final_step = torch.nn.Linear(self.lstm_hid_dim*2+d_a,args['dense_hid'])
+        self.linear_final_step = torch.nn.Linear(self.lstm_hid_dim*2+args['d_a'],args['dense_hid'])
         self.linear_final = torch.nn.Linear(args['dense_hid'],args['n_classes'])
 
         self.hidden_state = self.init_hidden()
